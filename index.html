@@ -48,7 +48,7 @@
       border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
       overflow-y: auto;
     }
@@ -116,7 +116,7 @@
     /* メインエリア表示 */
     .display-area {
       width: 100%;
-      min-height: 80px;
+      min-height: 100px;
       background: #0f172a;
       border: 1px solid #334155;
       border-radius: 8px;
@@ -137,36 +137,52 @@
       border-radius: 6px;
       padding: 4px 6px;
       height: 40px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .combined-char:hover {
+      border-color: #ef4444;
+      background: #334155;
+    }
+
+    /* ホバー時に削除マークを薄く表示 */
+    .combined-char:hover::after {
+      content: '✕';
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #ef4444;
+      color: white;
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
     }
 
     .combined-char img {
       height: 30px;
       object-fit: contain;
+      pointer-events: none;
     }
 
-    /* 翻訳出力/編集エリア */
+    /* 翻訳出力エリア */
     .translation-output {
       width: 100%;
-      min-height: 80px;
+      min-height: 100px;
       background: #0f172a;
       border: 1px solid #38bdf8;
       border-radius: 8px;
       padding: 12px;
       color: #38bdf8;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
       font-weight: bold;
-    }
-
-    .translation-input {
-      width: 100%;
-      height: 90px;
-      background: #0f172a;
-      border: 1px solid #4ade80;
-      border-radius: 8px;
-      padding: 10px;
-      color: #4ade80;
-      font-size: 1rem;
-      resize: none;
+      word-break: break-all;
     }
 
     /* 辞書登録エリア */
@@ -174,10 +190,17 @@
       background: #0f172a;
       border: 1px dashed #f59e0b;
       border-radius: 8px;
-      padding: 12px;
+      padding: 16px;
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dict-row {
+      display: flex;
+      gap: 8px;
       align-items: center;
+      flex-wrap: wrap;
     }
 
     .dict-input {
@@ -186,7 +209,7 @@
       color: white;
       padding: 6px 10px;
       border-radius: 4px;
-      width: 120px;
+      width: 140px;
     }
 
     /* ボタン共通 */
@@ -201,6 +224,7 @@
 
     .btn-info { background: #38bdf8; color: #0f172a; }
     .btn-add { background: #f59e0b; color: #0f172a; }
+    .btn-delete { background: #f43f5e; color: white; }
     .btn-backspace { background: #334155; color: #38bdf8; border: 1px solid #475569; }
     .btn-clear { background: #ef4444; color: white; }
 
@@ -292,6 +316,18 @@
 
     .table-card img { height: 30px; object-fit: contain; }
     .table-card span { font-size: 0.75rem; color: #94a3b8; }
+
+    /* 登録辞書一覧スタイル */
+    .dict-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
@@ -309,7 +345,7 @@
       <div class="parts-grid" id="right-parts-grid"></div>
 
       <button id="backspace-btn" class="btn btn-backspace">⌫ 1文字消す</button>
-      <button id="clear-btn" class="btn btn-clear">全消去</button>
+      <button id="clear-btn" class="btn btn-clear">🗑️ 組み合わせ文章をクリア</button>
 
       <div id="save-status" class="save-status">💾 自動保存済み</div>
     </aside>
@@ -318,7 +354,10 @@
       <h2>桶地下文字 翻訳ワークスペース</h2>
 
       <div class="form-group">
-        <label>① 組み合わせた文章:</label>
+        <label style="display: flex; justify-content: space-between;">
+          <span>① 組み合わせた文章:</span>
+          <span style="font-weight: normal; color: #64748b; font-size: 0.75rem;">※文字をクリックするとその文字だけ消去できます</span>
+        </label>
         <div id="display-area" class="display-area"></div>
       </div>
 
@@ -328,15 +367,17 @@
       </div>
 
       <div class="dict-box">
-        <label style="color:#f59e0b;">⚙️ 選択中の文字を辞書登録:</label>
-        <span id="selected-pair-name" style="font-size:0.85rem; color:#94a3b8;">（文字未選択）</span>
-        <input type="text" id="dict-meaning" class="dict-input" placeholder="意味 (例: あ)">
-        <button id="add-dict-btn" class="btn btn-add">辞書に保存</button>
-      </div>
-
-      <div class="form-group">
-        <label for="custom-translation">③ 訳文の編集・メモ:</label>
-        <textarea id="custom-translation" class="translation-input" placeholder="自動翻訳結果の微調整やメモを記入..."></textarea>
+        <div class="dict-row">
+          <label style="color:#f59e0b;">⚙️ 選択中の文字:</label>
+          <span id="selected-pair-name" style="font-size:0.85rem; color:#38bdf8; font-weight:bold;">（文字未選択）</span>
+          <input type="text" id="dict-meaning" class="dict-input" placeholder="意味 (例: あ)">
+          <button id="add-dict-btn" class="btn btn-add">辞書に保存</button>
+          <button id="del-dict-btn" class="btn btn-delete">🗑️ 選択中を辞書削除</button>
+        </div>
+        <div class="dict-row" style="margin-top: 4px;">
+          <button id="open-dict-list-btn" class="btn btn-backspace">📖 登録済み辞書を見る</button>
+          <button id="clear-dict-all-btn" class="btn btn-clear" style="padding: 4px 8px; font-size: 0.75rem;">⚠️ 辞書を全消去</button>
+        </div>
       </div>
     </main>
   </div>
@@ -344,21 +385,22 @@
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 style="color:#38bdf8;">パーツ対応表一覧</h3>
+        <h3 id="modal-title" style="color:#38bdf8;">パーツ対応表一覧</h3>
         <button class="close-modal-btn" id="close-modal-btn">&times;</button>
       </div>
-      <div class="tab-container">
+      <div class="tab-container" id="modal-tabs">
         <button class="tab-btn active" id="tab-left-btn">左パーツ (20種)</button>
         <button class="tab-btn" id="tab-right-btn">右パーツ (70種)</button>
       </div>
       <div class="modal-body">
         <div class="table-grid" id="modal-table-grid"></div>
+        <div id="modal-dict-list" style="display: none;"></div>
       </div>
     </div>
   </div>
 
   <script>
-    // ▼ データ初期化（画像のパスを .jpg に設定）
+    // ▼ データ初期化
     const leftParts = Array.from({length: 20}, (_, i) => ({ 
       id: `L${i+1}`, 
       src: `images/left_${i+1}.jpg`, 
@@ -372,14 +414,13 @@
     }));
 
     let selectedLeft = null;
-    let combinedTextList = []; // [{leftId, rightId, leftSrc, rightSrc}]
-    let dictionary = {}; // {'L1-R1': 'あ'}
+    let combinedTextList = []; 
+    let dictionary = {}; 
 
     const leftContainer = document.getElementById('left-parts-grid');
     const rightContainer = document.getElementById('right-parts-grid');
     const displayArea = document.getElementById('display-area');
     const autoTranslation = document.getElementById('auto-translation');
-    const customTranslation = document.getElementById('custom-translation');
     const selectedPairName = document.getElementById('selected-pair-name');
     const dictMeaning = document.getElementById('dict-meaning');
     const saveStatus = document.getElementById('save-status');
@@ -427,10 +468,19 @@
       displayArea.innerHTML = '';
       let autoTranslatedText = '';
 
-      combinedTextList.forEach(pair => {
+      combinedTextList.forEach((pair, index) => {
         const box = document.createElement('div');
         box.className = 'combined-char';
+        box.title = "クリックしてこの1文字を削除";
         box.innerHTML = `<img src="${pair.leftSrc}"><img src="${pair.rightSrc}">`;
+        
+        // ★ タップ/クリックで特定の1文字を直接消去する機能
+        box.onclick = () => {
+          combinedTextList.splice(index, 1);
+          renderDisplay();
+          saveData();
+        };
+
         displayArea.appendChild(box);
 
         // 辞書引き
@@ -452,9 +502,9 @@
       }
     }
 
-    // 辞書追加ボタン（保存後に文字入力を自動削除！）
+    // 辞書追加ボタン
     document.getElementById('add-dict-btn').onclick = () => {
-      if (combinedTextList.length === 0) return alert('辞書登録する文字が選択されていません');
+      if (combinedTextList.length === 0) return alert('文字が選択されていません');
       const last = combinedTextList[combinedTextList.length - 1];
       const key = `${last.leftId}-${last.rightId}`;
       const meaning = dictMeaning.value.trim();
@@ -464,7 +514,7 @@
       dictionary[key] = meaning;
       alert(`辞書に登録しました: [${key}] ➔ ${dictionary[key]}`);
 
-      // 保存した後に組み合わせ文字を自動クリア
+      // 自動クリア
       combinedTextList = [];
       dictMeaning.value = '';
       
@@ -472,7 +522,35 @@
       renderDisplay();
     };
 
-    // 削除ボタン
+    // 選択中の辞書データ削除ボタン
+    document.getElementById('del-dict-btn').onclick = () => {
+      if (combinedTextList.length === 0) return alert('文字が選択されていません');
+      const last = combinedTextList[combinedTextList.length - 1];
+      const key = `${last.leftId}-${last.rightId}`;
+
+      if (dictionary[key]) {
+        delete dictionary[key];
+        alert(`[${key}] の登録を辞書から削除しました`);
+        combinedTextList = [];
+        dictMeaning.value = '';
+        saveData();
+        renderDisplay();
+      } else {
+        alert('この文字はまだ辞書に登録されていません');
+      }
+    };
+
+    // 辞書全消去ボタン
+    document.getElementById('clear-dict-all-btn').onclick = () => {
+      if (confirm('登録した辞書データをすべて削除しますか？')) {
+        dictionary = {};
+        saveData();
+        renderDisplay();
+        alert('辞書データを全消去しました');
+      }
+    };
+
+    // 末尾1文字削除ボタン
     document.getElementById('backspace-btn').onclick = () => {
       combinedTextList.pop();
       renderDisplay();
@@ -482,27 +560,22 @@
     // 保存＆復元
     function saveData() {
       localStorage.setItem('oke_combined_list', JSON.stringify(combinedTextList));
-      localStorage.setItem('oke_translation_val', customTranslation.value);
       localStorage.setItem('oke_dictionary', JSON.stringify(dictionary));
       saveStatus.textContent = '💾 自動保存済み';
     }
 
     function loadData() {
       const savedList = localStorage.getItem('oke_combined_list');
-      const savedTrans = localStorage.getItem('oke_translation_val');
       const savedDict = localStorage.getItem('oke_dictionary');
       if (savedList) combinedTextList = JSON.parse(savedList);
-      if (savedTrans) customTranslation.value = savedTrans;
       if (savedDict) dictionary = JSON.parse(savedDict);
       renderDisplay();
     }
 
-    customTranslation.addEventListener('input', saveData);
-
+    // 組み合わせ文章のみをクリア
     document.getElementById('clear-btn').onclick = () => {
-      if (confirm('入力欄をすべて消去しますか？')) {
+      if (confirm('組み合わせた文章をすべて消去しますか？（※辞書は消えません）')) {
         combinedTextList = [];
-        customTranslation.value = '';
         renderDisplay();
         saveData();
       }
@@ -511,11 +584,32 @@
     // モーダル処理
     const modalOverlay = document.getElementById('modal-overlay');
     const modalGrid = document.getElementById('modal-table-grid');
+    const modalDictList = document.getElementById('modal-dict-list');
+    const modalTabs = document.getElementById('modal-tabs');
+    const modalTitle = document.getElementById('modal-title');
+
+    // 対応表モーダル
     document.getElementById('open-table-btn').onclick = () => {
+      modalTitle.textContent = 'パーツ対応表一覧';
+      modalTabs.style.display = 'flex';
+      modalGrid.style.display = 'grid';
+      modalDictList.style.display = 'none';
       modalOverlay.style.display = 'flex';
       renderModalTable(leftParts);
     };
+
+    // 辞書一覧モーダル
+    document.getElementById('open-dict-list-btn').onclick = () => {
+      modalTitle.textContent = '登録済み辞書一覧';
+      modalTabs.style.display = 'none';
+      modalGrid.style.display = 'none';
+      modalDictList.style.display = 'block';
+      modalOverlay.style.display = 'flex';
+      renderDictList();
+    };
+
     document.getElementById('close-modal-btn').onclick = () => modalOverlay.style.display = 'none';
+    
     document.getElementById('tab-left-btn').onclick = function() {
       this.classList.add('active');
       document.getElementById('tab-right-btn').classList.remove('active');
@@ -534,6 +628,32 @@
         card.className = 'table-card';
         card.innerHTML = `<img src="${part.src}"><span>${part.name}</span>`;
         modalGrid.appendChild(card);
+      });
+    }
+
+    // 辞書一覧の描画
+    function renderDictList() {
+      modalDictList.innerHTML = '';
+      const keys = Object.keys(dictionary);
+      if (keys.length === 0) {
+        modalDictList.innerHTML = '<p style="color:#94a3b8; text-align:center;">まだ辞書に登録された文字はありません。</p>';
+        return;
+      }
+
+      keys.forEach(key => {
+        const item = document.createElement('div');
+        item.className = 'dict-list-item';
+        item.innerHTML = `
+          <span><strong>[${key}]</strong> ➔ <span style="color:#f59e0b;">${dictionary[key]}</span></span>
+          <button class="btn btn-delete" style="padding: 4px 8px; font-size: 0.75rem;">削除</button>
+        `;
+        item.querySelector('button').onclick = () => {
+          delete dictionary[key];
+          saveData();
+          renderDictList();
+          renderDisplay();
+        };
+        modalDictList.appendChild(item);
       });
     }
 
