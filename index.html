@@ -170,6 +170,12 @@
       pointer-events: none;
     }
 
+    .control-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
     /* 翻訳出力エリア */
     .translation-output {
       width: 100%;
@@ -211,6 +217,18 @@
       width: 140px;
     }
 
+    /* セーブデータコントロールエリア */
+    .save-control-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+    }
+
     /* ボタン共通 */
     .btn {
       padding: 8px;
@@ -227,15 +245,13 @@
     .btn-delete { background: #f43f5e; color: white; }
     .btn-backspace { background: #334155; color: #38bdf8; border: 1px solid #475569; }
     .btn-clear { background: #ef4444; color: white; }
+    .btn-save { background: #22c55e; color: #0f172a; }
+    .btn-load { background: #eab308; color: #0f172a; }
 
     .save-status {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #4ade80;
-      padding: 8px;
-      background: #0f172a;
-      border-radius: 6px;
       text-align: center;
-      margin-top: auto;
     }
 
     /* モーダル */
@@ -317,7 +333,6 @@
     .table-card img { height: 30px; object-fit: contain; }
     .table-card span { font-size: 0.75rem; color: #94a3b8; }
 
-    /* 登録辞書一覧スタイル */
     .dict-list-item {
       display: flex;
       justify-content: space-between;
@@ -405,10 +420,13 @@
       <div class="section-title">▶ 右パーツ（1〜70）</div>
       <div class="parts-grid" id="right-parts-grid"></div>
 
-      <button id="backspace-btn" class="btn btn-backspace">⌫ 1文字消す</button>
-      <button id="clear-btn" class="btn btn-clear">🗑️ 組み合わせ文章をクリア</button>
-
-      <div id="save-status" class="save-status">💾 自動保存済み</div>
+      <div class="save-control-box">
+        <label style="color:#22c55e;">💾 セーブデータ管理</label>
+        <button id="export-save-btn" class="btn btn-save">💾 セーブ (ファイル保存)</button>
+        <button id="import-save-btn" class="btn btn-load">📂 ロード (ファイル読み込み)</button>
+        <input type="file" id="file-input" accept=".json" style="display: none;">
+        <div id="save-status" class="save-status">💾 自動保存済み</div>
+      </div>
     </aside>
 
     <main class="main-content">
@@ -420,6 +438,11 @@
           <span style="font-weight: normal; color: #64748b; font-size: 0.75rem;">※文字をクリックするとその文字だけ消去できます</span>
         </label>
         <div id="display-area" class="display-area"></div>
+        
+        <div class="control-row">
+          <button id="backspace-btn" class="btn btn-backspace" style="flex: 1;">⌫ 1文字消す</button>
+          <button id="clear-btn" class="btn btn-clear" style="flex: 1;">🗑️ 組み合わせ文章をクリア</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -433,11 +456,9 @@
           <span id="selected-pair-name" style="font-size:0.85rem; color:#38bdf8; font-weight:bold;">（文字未選択）</span>
           <input type="text" id="dict-meaning" class="dict-input" placeholder="意味 (例: あ)">
           <button id="add-dict-btn" class="btn btn-add">辞書に保存</button>
-          <button id="del-dict-btn" class="btn btn-delete">🗑️ 選択中を辞書削除</button>
         </div>
         <div class="dict-row" style="margin-top: 4px;">
-          <button id="open-dict-list-btn" class="btn btn-backspace">📖 登録済み辞書を見る</button>
-          <button id="clear-dict-all-btn" class="btn btn-clear" style="padding: 4px 8px; font-size: 0.75rem;">⚠️ 辞書を全消去</button>
+          <button id="open-dict-list-btn" class="btn btn-backspace" style="width: 100%;">📖 登録済み辞書を見る・編集する</button>
         </div>
       </div>
     </main>
@@ -486,6 +507,7 @@
     const selectedPairName = document.getElementById('selected-pair-name');
     const dictMeaning = document.getElementById('dict-meaning');
     const saveStatus = document.getElementById('save-status');
+    const fileInput = document.getElementById('file-input');
 
     function initKeyboards() {
       leftContainer.innerHTML = '';
@@ -583,34 +605,6 @@
       renderDisplay();
     };
 
-    // 選択中の辞書データ削除ボタン
-    document.getElementById('del-dict-btn').onclick = () => {
-      if (combinedTextList.length === 0) return alert('文字が選択されていません');
-      const last = combinedTextList[combinedTextList.length - 1];
-      const key = `${last.leftId}-${last.rightId}`;
-
-      if (dictionary[key]) {
-        delete dictionary[key];
-        alert(`[${key}] の登録を辞書から削除しました`);
-        combinedTextList = [];
-        dictMeaning.value = '';
-        saveData();
-        renderDisplay();
-      } else {
-        alert('この文字はまだ辞書に登録されていません');
-      }
-    };
-
-    // 辞書全消去ボタン
-    document.getElementById('clear-dict-all-btn').onclick = () => {
-      if (confirm('登録した辞書データをすべて削除しますか？')) {
-        dictionary = {};
-        saveData();
-        renderDisplay();
-        alert('辞書データを全消去しました');
-      }
-    };
-
     // 末尾1文字削除ボタン
     document.getElementById('backspace-btn').onclick = () => {
       combinedTextList.pop();
@@ -618,7 +612,16 @@
       saveData();
     };
 
-    // 保存＆復元
+    // 組み合わせ文章のみをクリア
+    document.getElementById('clear-btn').onclick = () => {
+      if (confirm('組み合わせた文章をすべて消去しますか？（※辞書は消えません）')) {
+        combinedTextList = [];
+        renderDisplay();
+        saveData();
+      }
+    };
+
+    // 自動保存＆復元
     function saveData() {
       localStorage.setItem('oke_combined_list', JSON.stringify(combinedTextList));
       localStorage.setItem('oke_dictionary', JSON.stringify(dictionary));
@@ -633,13 +636,51 @@
       renderDisplay();
     }
 
-    // 組み合わせ文章のみをクリア
-    document.getElementById('clear-btn').onclick = () => {
-      if (confirm('組み合わせた文章をすべて消去しますか？（※辞書は消えません）')) {
-        combinedTextList = [];
-        renderDisplay();
-        saveData();
-      }
+    // ★ セーブ機能 (JSONファイルとして書き出し)
+    document.getElementById('export-save-btn').onclick = () => {
+      const saveDataObj = {
+        combinedTextList: combinedTextList,
+        dictionary: dictionary,
+        savedAt: new Date().toLocaleString('ja-JP')
+      };
+      const jsonStr = JSON.stringify(saveDataObj, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oke_cipher_save_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // ★ ロード機能 (JSONファイルの読み込み)
+    document.getElementById('import-save-btn').onclick = () => {
+      fileInput.click();
+    };
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const importedData = JSON.parse(event.target.result);
+          if (importedData.dictionary) {
+            dictionary = importedData.dictionary;
+            combinedTextList = importedData.combinedTextList || [];
+            saveData();
+            renderDisplay();
+            alert('セーブデータを正常にロードしました！');
+          } else {
+            alert('無効なセーブデータファイルです。');
+          }
+        } catch (err) {
+          alert('ファイルの読み込みに失敗しました。');
+        }
+      };
+      reader.readAsText(file);
     };
 
     // モーダル処理
@@ -710,13 +751,11 @@
     function renderMatrixTable() {
       let html = '<table class="matrix-table"><thead><tr><th class="sticky-col">L＼R</th>';
       
-      // ヘッダー（右パーツ 1〜70）
       for (let r = 1; r <= 70; r++) {
         html += `<th>R${r}</th>`;
       }
       html += '</tr></thead><tbody>';
 
-      // ボディ（左パーツ 1〜20）
       for (let l = 1; l <= 20; l++) {
         html += `<tr><td class="sticky-col">L${l}</td>`;
         for (let r = 1; r <= 70; r++) {
