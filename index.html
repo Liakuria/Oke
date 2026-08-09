@@ -147,7 +147,6 @@
       background: #334155;
     }
 
-    /* ホバー時に削除マークを薄く表示 */
     .combined-char:hover::after {
       content: '✕';
       position: absolute;
@@ -223,6 +222,7 @@
     }
 
     .btn-info { background: #38bdf8; color: #0f172a; }
+    .btn-matrix { background: #a855f7; color: white; }
     .btn-add { background: #f59e0b; color: #0f172a; }
     .btn-delete { background: #f43f5e; color: white; }
     .btn-backspace { background: #334155; color: #38bdf8; border: 1px solid #475569; }
@@ -244,7 +244,7 @@
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.8);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -252,11 +252,11 @@
 
     .modal-content {
       background: #1e293b;
-      width: 80%;
-      max-width: 800px;
-      max-height: 85vh;
+      width: 95%;
+      max-width: 1200px;
+      height: 90vh;
       border-radius: 12px;
-      padding: 24px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -290,7 +290,7 @@
     .tab-btn.active { background: #f59e0b; color: #0f172a; font-weight: bold; }
 
     .modal-body {
-      overflow-y: auto;
+      overflow: auto;
       flex-grow: 1;
       padding: 10px;
       background: #0f172a;
@@ -328,6 +328,66 @@
       border-radius: 6px;
       margin-bottom: 6px;
     }
+
+    /* 20x70 マトリックス表スタイル */
+    .matrix-table-wrapper {
+      overflow: auto;
+      max-height: 100%;
+    }
+
+    .matrix-table {
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .matrix-table th, .matrix-table td {
+      border: 1px solid #334155;
+      padding: 4px 6px;
+      min-width: 50px;
+    }
+
+    .matrix-table th {
+      background: #1e293b;
+      color: #38bdf8;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .matrix-table th.sticky-col {
+      left: 0;
+      z-index: 3;
+      background: #1e293b;
+    }
+
+    .matrix-table td.sticky-col {
+      position: sticky;
+      left: 0;
+      background: #1e293b;
+      color: #f59e0b;
+      font-weight: bold;
+      z-index: 1;
+    }
+
+    .matrix-cell-char {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 24px;
+    }
+
+    .matrix-cell-char img {
+      height: 20px;
+      object-fit: contain;
+    }
+
+    .matrix-meaning {
+      color: #4ade80;
+      font-size: 0.7rem;
+      font-weight: bold;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -336,7 +396,8 @@
     <aside class="sidebar">
       <h2>機能・パーツ選択</h2>
 
-      <button id="open-table-btn" class="btn btn-info">📖 20×70 対応表を表示</button>
+      <button id="open-table-btn" class="btn btn-info">📖 パーツ一覧を見る</button>
+      <button id="open-matrix-btn" class="btn btn-matrix">📊 20×70 全組み合わせ表</button>
 
       <div class="section-title">◀ 左パーツ（1〜20）</div>
       <div class="parts-grid" id="left-parts-grid"></div>
@@ -395,6 +456,7 @@
       <div class="modal-body">
         <div class="table-grid" id="modal-table-grid"></div>
         <div id="modal-dict-list" style="display: none;"></div>
+        <div id="modal-matrix-container" class="matrix-table-wrapper" style="display: none;"></div>
       </div>
     </div>
   </div>
@@ -474,7 +536,6 @@
         box.title = "クリックしてこの1文字を削除";
         box.innerHTML = `<img src="${pair.leftSrc}"><img src="${pair.rightSrc}">`;
         
-        // ★ タップ/クリックで特定の1文字を直接消去する機能
         box.onclick = () => {
           combinedTextList.splice(index, 1);
           renderDisplay();
@@ -585,17 +646,30 @@
     const modalOverlay = document.getElementById('modal-overlay');
     const modalGrid = document.getElementById('modal-table-grid');
     const modalDictList = document.getElementById('modal-dict-list');
+    const modalMatrix = document.getElementById('modal-matrix-container');
     const modalTabs = document.getElementById('modal-tabs');
     const modalTitle = document.getElementById('modal-title');
 
-    // 対応表モーダル
+    // パーツ対応表モーダル
     document.getElementById('open-table-btn').onclick = () => {
       modalTitle.textContent = 'パーツ対応表一覧';
       modalTabs.style.display = 'flex';
       modalGrid.style.display = 'grid';
       modalDictList.style.display = 'none';
+      modalMatrix.style.display = 'none';
       modalOverlay.style.display = 'flex';
       renderModalTable(leftParts);
+    };
+
+    // 20x70 マトリックス表示
+    document.getElementById('open-matrix-btn').onclick = () => {
+      modalTitle.textContent = '20×70 全組み合わせ＆解読一覧表';
+      modalTabs.style.display = 'none';
+      modalGrid.style.display = 'none';
+      modalDictList.style.display = 'none';
+      modalMatrix.style.display = 'block';
+      modalOverlay.style.display = 'flex';
+      renderMatrixTable();
     };
 
     // 辞書一覧モーダル
@@ -603,6 +677,7 @@
       modalTitle.textContent = '登録済み辞書一覧';
       modalTabs.style.display = 'none';
       modalGrid.style.display = 'none';
+      modalMatrix.style.display = 'none';
       modalDictList.style.display = 'block';
       modalOverlay.style.display = 'flex';
       renderDictList();
@@ -629,6 +704,38 @@
         card.innerHTML = `<img src="${part.src}"><span>${part.name}</span>`;
         modalGrid.appendChild(card);
       });
+    }
+
+    // 20x70 マトリックス生成関数
+    function renderMatrixTable() {
+      let html = '<table class="matrix-table"><thead><tr><th class="sticky-col">L＼R</th>';
+      
+      // ヘッダー（右パーツ 1〜70）
+      for (let r = 1; r <= 70; r++) {
+        html += `<th>R${r}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+
+      // ボディ（左パーツ 1〜20）
+      for (let l = 1; l <= 20; l++) {
+        html += `<tr><td class="sticky-col">L${l}</td>`;
+        for (let r = 1; r <= 70; r++) {
+          const key = `L${l}-R${r}`;
+          const meaning = dictionary[key] || '？';
+          html += `
+            <td>
+              <div class="matrix-cell-char">
+                <img src="images/left_${l}.jpg"><img src="images/right_${r}.jpg">
+              </div>
+              <div class="matrix-meaning">${meaning}</div>
+            </td>
+          `;
+        }
+        html += '</tr>';
+      }
+
+      html += '</tbody></table>';
+      modalMatrix.innerHTML = html;
     }
 
     // 辞書一覧の描画
