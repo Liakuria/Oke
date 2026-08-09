@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>桶地下文字 結合入力ツール</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+    }
+
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      padding: 20px;
+      gap: 2%;
+    }
+
+    /* 左エリア (25%): パーツ選択キーボード */
+    .sidebar {
+      width: 25%;
+      background: #1e293b;
+      padding: 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      overflow-y: auto;
+    }
+
+    /* 右エリア (65%): 結合表示 ＆ 翻訳 */
+    .main-content {
+      width: 65%;
+      background: #1e293b;
+      padding: 24px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      color: #38bdf8;
+      border-bottom: 2px solid #334155;
+      padding-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      color: #f59e0b;
+      margin-top: 4px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-grow: 1;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-weight: bold;
+    }
+
+    /* パーツ用グリッド配置 (4列表示にして compact化) */
+    .parts-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+
+    .img-btn {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .img-btn:hover {
+      border-color: #38bdf8;
+      background: #1e293b;
+    }
+
+    .img-btn.selected {
+      border-color: #f59e0b;
+      background: #334155;
+    }
+
+    .img-btn img {
+      max-width: 100%;
+      height: 24px; /* 70種類を一覧で見やすくするためコンパクトサイズに調整 */
+      object-fit: contain;
+    }
+
+    /* 結合文字が表示されるメインエリア */
+    .display-area {
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 8px;
+    }
+
+    /* 左右のパーツが結合した「1つの文字枠」 */
+    .combined-char {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 4px 6px;
+      height: 40px;
+    }
+
+    .combined-char img {
+      height: 30px;
+      object-fit: contain;
+    }
+
+    /* 翻訳入力欄 */
+    .translation-input {
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      border: 1px solid #4ade80;
+      border-radius: 8px;
+      padding: 14px;
+      color: #4ade80;
+      font-size: 1.05rem;
+      resize: none;
+      line-height: 1.5;
+    }
+
+    .translation-input:focus {
+      outline: none;
+      border-color: #22c55e;
+    }
+
+    .action-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+
+    .backspace-btn {
+      background: #334155;
+      color: #38bdf8;
+      border: 1px solid #475569;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .save-status {
+      font-size: 0.8rem;
+      color: #4ade80;
+      padding: 8px;
+      background: #0f172a;
+      border-radius: 6px;
+      text-align: center;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <aside class="sidebar">
+      <h2>パーツ選択</h2>
+
+      <div class="section-title">◀ 左パーツ（1〜20）を選択</div>
+      <div class="parts-grid" id="left-parts-grid"></div>
+
+      <div class="section-title">▶ 右パーツ（1〜70）を選択</div>
+      <div class="parts-grid" id="right-parts-grid"></div>
+
+      <button id="backspace-btn" class="backspace-btn">⌫ 1文字（ペア）消す</button>
+      <button id="clear-btn" class="action-btn">全消去</button>
+
+      <div id="save-status" class="save-status">
+        💾 自動保存済み
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <h2>桶地下文字 翻訳ワークスペース</h2>
+
+      <div class="form-group">
+        <label>① 組み合わせた文章:</label>
+        <div id="display-area" class="display-area"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="custom-translation">② 自分の訳を入力:</label>
+        <textarea id="custom-translation" class="translation-input" placeholder="ここに解読した自分の訳を入力..."></textarea>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ▼ 左パーツ（20種類）の配列生成
+    const leftParts = [];
+    for (let i = 1; i <= 20; i++) {
+      leftParts.push({ id: `L${i}`, src: `images/left_${i}.png` });
+    }
+
+    // ▼ 右パーツ（70種類）の配列生成
+    const rightParts = [];
+    for (let i = 1; i <= 70; i++) {
+      rightParts.push({ id: `R${i}`, src: `images/right_${i}.png` });
+    }
+
+    // 選択中の状態管理
+    let selectedLeft = null;
+    let combinedTextList = []; // 完成したペア[{left: '...', right: '...'}]を保存する配列
+
+    const leftContainer = document.getElementById('left-parts-grid');
+    const rightContainer = document.getElementById('right-parts-grid');
+    const displayArea = document.getElementById('display-area');
+    const customTranslation = document.getElementById('custom-translation');
+    const saveStatus = document.getElementById('save-status');
+
+    // キーボード（左パーツ・右パーツボタン）の初期化
+    function initKeyboards() {
+      // 左パーツ生成 (20個)
+      leftContainer.innerHTML = '';
+      leftParts.forEach(part => {
+        const btn = createPartButton(part, () => selectLeftPart(part, btn));
+        leftContainer.appendChild(btn);
+      });
+
+      // 右パーツ生成 (70個)
+      rightContainer.innerHTML = '';
+      rightParts.forEach(part => {
+        const btn = createPartButton(part, () => selectRightPart(part));
+        rightContainer.appendChild(btn);
+      });
+    }
+
+    function createPartButton(part, onClick) {
+      const btn = document.createElement('button');
+      btn.className = 'img-btn';
+      const img = document.createElement('img');
+      img.src = part.src;
+      btn.appendChild(img);
+      btn.onclick = onClick;
+      return btn;
+    }
+
+    // 左パーツが押されたとき
+    function selectLeftPart(part, btnElement) {
+      document.querySelectorAll('#left-parts-grid .img-btn').forEach(b => b.classList.remove('selected'));
+      btnElement.classList.add('selected');
+      selectedLeft = part;
+    }
+
+    // 右パーツが押されたとき（左パーツが選ばれていれば合体させて追加）
+    function selectRightPart(rightPart) {
+      if (!selectedLeft) {
+        alert('先に「左パーツ」を選んでから右パーツを押してください！');
+        return;
+      }
+
+      // 左右をペアにして追加
+      combinedTextList.push({
+        left: selectedLeft.src,
+        right: rightPart.src
+      });
+
+      // 左パーツの選択状態を解除
+      selectedLeft = null;
+      document.querySelectorAll('#left-parts-grid .img-btn').forEach(b => b.classList.remove('selected'));
+
+      renderDisplay();
+      saveData();
+    }
+
+    // メインエリアに「合体文字（左右セット）」を描画する
+    function renderDisplay() {
+      displayArea.innerHTML = '';
+      combinedTextList.forEach(pair => {
+        const box = document.createElement('div');
+        box.className = 'combined-char';
+
+        const leftImg = document.createElement('img');
+        leftImg.src = pair.left;
+
+        const rightImg = document.createElement('img');
+        rightImg.src = pair.right;
+
+        box.appendChild(leftImg);
+        box.appendChild(rightImg);
+        displayArea.appendChild(box);
+      });
+    }
+
+    // 1文字（1ペア）削除
+    document.getElementById('backspace-btn').onclick = () => {
+      combinedTextList.pop();
+      renderDisplay();
+      saveData();
+    };
+
+    // 自動保存
+    function saveData() {
+      localStorage.setItem('okechika_combined_list', JSON.stringify(combinedTextList));
+      localStorage.setItem('okechika_translation_val', customTranslation.value);
+      saveStatus.textContent = '💾 自動保存済み';
+      saveStatus.style.color = '#4ade80';
+    }
+
+    // 復元
+    function loadData() {
+      const savedList = localStorage.getItem('okechika_combined_list');
+      const savedTrans = localStorage.getItem('okechika_translation_val');
+      if (savedList) {
+        combinedTextList = JSON.parse(savedList);
+        renderDisplay();
+      }
+      if (savedTrans) customTranslation.value = savedTrans;
+    }
+
+    customTranslation.addEventListener('input', () => {
+      saveData();
+      saveStatus.textContent = '⏳ 保存中...';
+      saveStatus.style.color = '#f59e0b';
+    });
+
+    document.getElementById('clear-btn').onclick = () => {
+      if (confirm('すべて消去しますか？')) {
+        combinedTextList = [];
+        customTranslation.value = '';
+        localStorage.removeItem('okechika_combined_list');
+        localStorage.removeItem('okechika_translation_val');
+        renderDisplay();
+        saveStatus.textContent = '🗑️ リセット完了';
+      }
+    };
+
+    initKeyboards();
+    loadData();
+  </script>
+</body>
+</html>
