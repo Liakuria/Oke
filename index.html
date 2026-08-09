@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>桶地下文字 結合＆自動翻訳ツール</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+    }
+
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      padding: 20px;
+      gap: 2%;
+    }
+
+    /* 左エリア (25%): サイドバー */
+    .sidebar {
+      width: 25%;
+      background: #1e293b;
+      padding: 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      overflow-y: auto;
+    }
+
+    /* 右エリア (65%): メインワークスペース */
+    .main-content {
+      width: 65%;
+      background: #1e293b;
+      padding: 24px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      overflow-y: auto;
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      color: #38bdf8;
+      border-bottom: 2px solid #334155;
+      padding-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      color: #f59e0b;
+      margin-top: 4px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-weight: bold;
+    }
+
+    /* パーツグリッド（4列表示） */
+    .parts-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+
+    .img-btn {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .img-btn:hover {
+      border-color: #38bdf8;
+      background: #1e293b;
+    }
+
+    .img-btn.selected {
+      border-color: #f59e0b;
+      background: #334155;
+    }
+
+    .img-btn img {
+      max-width: 100%;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    /* メインエリア表示 */
+    .display-area {
+      width: 100%;
+      min-height: 80px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 8px;
+    }
+
+    .combined-char {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 4px 6px;
+      height: 40px;
+    }
+
+    .combined-char img {
+      height: 30px;
+      object-fit: contain;
+    }
+
+    /* 翻訳出力/編集エリア */
+    .translation-output {
+      width: 100%;
+      min-height: 80px;
+      background: #0f172a;
+      border: 1px solid #38bdf8;
+      border-radius: 8px;
+      padding: 12px;
+      color: #38bdf8;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .translation-input {
+      width: 100%;
+      height: 70px;
+      background: #0f172a;
+      border: 1px solid #4ade80;
+      border-radius: 8px;
+      padding: 10px;
+      color: #4ade80;
+      font-size: 1rem;
+      resize: none;
+    }
+
+    /* 辞書登録エリア */
+    .dict-box {
+      background: #0f172a;
+      border: 1px dashed #f59e0b;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .dict-input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 4px;
+      width: 120px;
+    }
+
+    /* ボタン共通 */
+    .btn {
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      border: none;
+    }
+
+    .btn-info { background: #38bdf8; color: #0f172a; }
+    .btn-download { background: #22c55e; color: #0f172a; }
+    .btn-add { background: #f59e0b; color: #0f172a; }
+    .btn-backspace { background: #334155; color: #38bdf8; border: 1px solid #475569; }
+    .btn-clear { background: #ef4444; color: white; }
+
+    .save-status {
+      font-size: 0.8rem;
+      color: #4ade80;
+      padding: 8px;
+      background: #0f172a;
+      border-radius: 6px;
+      text-align: center;
+      margin-top: auto;
+    }
+
+    /* モーダル（一覧表） */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      width: 80%;
+      max-width: 800px;
+      max-height: 85vh;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #334155;
+      padding-bottom: 8px;
+    }
+
+    .close-modal-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .tab-container { display: flex; gap: 10px; }
+    .tab-btn {
+      padding: 8px 16px;
+      background: #0f172a;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .tab-btn.active { background: #f59e0b; color: #0f172a; font-weight: bold; }
+
+    .modal-body {
+      overflow-y: auto;
+      flex-grow: 1;
+      padding: 10px;
+      background: #0f172a;
+      border-radius: 8px;
+    }
+
+    .table-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+    }
+
+    .table-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .table-card img { height: 30px; object-fit: contain; }
+    .table-card span { font-size: 0.75rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <aside class="sidebar">
+      <h2>機能・パーツ選択</h2>
+
+      <button id="open-table-btn" class="btn btn-info">📖 20×70 対応表を表示</button>
+
+      <div class="section-title">◀ 左パーツ（1〜20）</div>
+      <div class="parts-grid" id="left-parts-grid"></div>
+
+      <div class="section-title">▶ 右パーツ（1〜70）</div>
+      <div class="parts-grid" id="right-parts-grid"></div>
+
+      <button id="backspace-btn" class="btn btn-backspace">⌫ 1文字消す</button>
+      <button id="clear-btn" class="btn btn-clear">全消去</button>
+
+      <div id="save-status" class="save-status">💾 自動保存済み</div>
+    </aside>
+
+    <main class="main-content">
+      <h2>桶地下文字 翻訳ワークスペース</h2>
+
+      <div class="form-group">
+        <label>① 組み合わせた文章:</label>
+        <div id="display-area" class="display-area"></div>
+      </div>
+
+      <div class="form-group">
+        <label>② 辞書による自動翻訳結果:</label>
+        <div id="auto-translation" class="translation-output"></div>
+      </div>
+
+      <div class="dict-box">
+        <label style="color:#f59e0b;">⚙️ 選択中の文字を辞書登録:</label>
+        <span id="selected-pair-name" style="font-size:0.85rem; color:#94a3b8;">（文字未選択）</span>
+        <input type="text" id="dict-meaning" class="dict-input" placeholder="意味 (例: あ)">
+        <button id="add-dict-btn" class="btn btn-add">辞書に保存</button>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label for="custom-translation">③ 訳文の編集・保存用メモ:</label>
+          <button id="download-btn" class="btn btn-download">📥 訳文を.txtで保存</button>
+        </div>
+        <textarea id="custom-translation" class="translation-input" placeholder="自動翻訳結果の微調整やメモを記入..."></textarea>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="color:#38bdf8;">パーツ対応表一覧</h3>
+        <button class="close-modal-btn" id="close-modal-btn">&times;</button>
+      </div>
+      <div class="tab-container">
+        <button class="tab-btn active" id="tab-left-btn">左パーツ (20種)</button>
+        <button class="tab-btn" id="tab-right-btn">右パーツ (70種)</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-grid" id="modal-table-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ▼ データ初期化（画像のパスを .jpg に設定）
+    const leftParts = Array.from({length: 20}, (_, i) => ({ 
+      id: `L${i+1}`, 
+      src: `images/left_${i+1}.jpg`, 
+      name: `左パーツ ${i+1}` 
+    }));
+
+    const rightParts = Array.from({length: 70}, (_, i) => ({ 
+      id: `R${i+1}`, 
+      src: `images/right_${i+1}.jpg`, 
+      name: `右パーツ ${i+1}` 
+    }));
+
+    let selectedLeft = null;
+    let combinedTextList = []; // [{leftId, rightId, leftSrc, rightSrc}]
+    let dictionary = {}; // {'L1-R1': 'あ'}
+
+    const leftContainer = document.getElementById('left-parts-grid');
+    const rightContainer = document.getElementById('right-parts-grid');
+    const displayArea = document.getElementById('display-area');
+    const autoTranslation = document.getElementById('auto-translation');
+    const customTranslation = document.getElementById('custom-translation');
+    const selectedPairName = document.getElementById('selected-pair-name');
+    const dictMeaning = document.getElementById('dict-meaning');
+    const saveStatus = document.getElementById('save-status');
+
+    function initKeyboards() {
+      leftContainer.innerHTML = '';
+      leftParts.forEach(part => {
+        const btn = createBtn(part, () => {
+          document.querySelectorAll('#left-parts-grid .img-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedLeft = part;
+        });
+        leftContainer.appendChild(btn);
+      });
+
+      rightContainer.innerHTML = '';
+      rightParts.forEach(part => {
+        const btn = createBtn(part, () => {
+          if (!selectedLeft) return alert('先に左パーツを選んでください');
+          combinedTextList.push({
+            leftId: selectedLeft.id,
+            rightId: part.id,
+            leftSrc: selectedLeft.src,
+            rightSrc: part.src
+          });
+          selectedLeft = null;
+          document.querySelectorAll('#left-parts-grid .img-btn').forEach(b => b.classList.remove('selected'));
+          renderDisplay();
+          saveData();
+        });
+        rightContainer.appendChild(btn);
+      });
+    }
+
+    function createBtn(part, onClick) {
+      const btn = document.createElement('button');
+      btn.className = 'img-btn';
+      btn.innerHTML = `<img src="${part.src}">`;
+      btn.onclick = onClick;
+      return btn;
+    }
+
+    // 表示描画 ＆ 自動翻訳
+    function renderDisplay() {
+      displayArea.innerHTML = '';
+      let autoTranslatedText = '';
+
+      combinedTextList.forEach(pair => {
+        const box = document.createElement('div');
+        box.className = 'combined-char';
+        box.innerHTML = `<img src="${pair.leftSrc}"><img src="${pair.rightSrc}">`;
+        displayArea.appendChild(box);
+
+        // 辞書引き
+        const key = `${pair.leftId}-${pair.rightId}`;
+        autoTranslatedText += dictionary[key] ? dictionary[key] : '？';
+      });
+
+      autoTranslation.textContent = autoTranslatedText;
+
+      // 直近の入力ペアを辞書登録用に表示
+      if (combinedTextList.length > 0) {
+        const last = combinedTextList[combinedTextList.length - 1];
+        const key = `${last.leftId}-${last.rightId}`;
+        selectedPairName.textContent = `[${last.leftId} + ${last.rightId}]`;
+        dictMeaning.value = dictionary[key] || '';
+      } else {
+        selectedPairName.textContent = '（文字未選択）';
+        dictMeaning.value = '';
+      }
+    }
+
+    // 辞書追加ボタン
+    document.getElementById('add-dict-btn').onclick = () => {
+      if (combinedTextList.length === 0) return alert('辞書登録する文字が選択されていません');
+      const last = combinedTextList[combinedTextList.length - 1];
+      const key = `${last.leftId}-${last.rightId}`;
+      dictionary[key] = dictMeaning.value.trim();
+      saveData();
+      renderDisplay();
+      alert(`登録しました: [${key}] ➔ ${dictionary[key]}`);
+    };
+
+    // 削除
+    document.getElementById('backspace-btn').onclick = () => {
+      combinedTextList.pop();
+      renderDisplay();
+      saveData();
+    };
+
+    // 保存＆復元
+    function saveData() {
+      localStorage.setItem('oke_combined_list', JSON.stringify(combinedTextList));
+      localStorage.setItem('oke_translation_val', customTranslation.value);
+      localStorage.setItem('oke_dictionary', JSON.stringify(dictionary));
+      saveStatus.textContent = '💾 自動保存済み';
+    }
+
+    function loadData() {
+      const savedList = localStorage.getItem('oke_combined_list');
+      const savedTrans = localStorage.getItem('oke_translation_val');
+      const savedDict = localStorage.getItem('oke_dictionary');
+      if (savedList) combinedTextList = JSON.parse(savedList);
+      if (savedTrans) customTranslation.value = savedTrans;
+      if (savedDict) dictionary = JSON.parse(savedDict);
+      renderDisplay();
+    }
+
+    customTranslation.addEventListener('input', saveData);
+
+    document.getElementById('clear-btn').onclick = () => {
+      if (confirm('すべて消去しますか？')) {
+        combinedTextList = [];
+        customTranslation.value = '';
+        renderDisplay();
+        saveData();
+      }
+    };
+
+    // txt保存
+    document.getElementById('download-btn').onclick = () => {
+      const text = `【自動翻訳結果】\n${autoTranslation.textContent}\n\n【メモ・訳文】\n${customTranslation.value}`;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `桶地下文字_訳文_${new Date().toISOString().slice(0,10)}.txt`;
+      link.click();
+    };
+
+    // モーダル処理
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalGrid = document.getElementById('modal-table-grid');
+    document.getElementById('open-table-btn').onclick = () => {
+      modalOverlay.style.display = 'flex';
+      renderModalTable(leftParts);
+    };
+    document.getElementById('close-modal-btn').onclick = () => modalOverlay.style.display = 'none';
+    document.getElementById('tab-left-btn').onclick = function() {
+      this.classList.add('active');
+      document.getElementById('tab-right-btn').classList.remove('active');
+      renderModalTable(leftParts);
+    };
+    document.getElementById('tab-right-btn').onclick = function() {
+      this.classList.add('active');
+      document.getElementById('tab-left-btn').classList.remove('active');
+      renderModalTable(rightParts);
+    };
+
+    function renderModalTable(partsList) {
+      modalGrid.innerHTML = '';
+      partsList.forEach(part => {
+        const card = document.createElement('div');
+        card.className = 'table-card';
+        card.innerHTML = `<img src="${part.src}"><span>${part.name}</span>`;
+        modalGrid.appendChild(card);
+      });
+    }
+
+    initKeyboards();
+    loadData();
+  </script>
+</body>
+</html>
